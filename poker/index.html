@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nintendo Poker – 5-Card Draw</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="game-header">
+    <span class="header-title">♠ POKER ♣</span>
+    <span class="header-round" id="header-round"></span>
+  </header>
+
+  <!-- ══ START SCREEN ══════════════════════════════════════════════════════ -->
+  <main id="start-screen" class="screen">
+
+    <div class="logo">
+      <h1>POKER</h1>
+      <p>5-Card Draw · Challenge Mode</p>
+    </div>
+
+    <div class="nes-panel">
+      <h2>▶ NEW GAME</h2>
+      <form id="start-form" autocomplete="off">
+
+        <div class="form-group">
+          <label for="p1-name">PLAYER 1 NAME</label>
+          <input type="text" id="p1-name" placeholder="PLAYER 1" maxlength="12" />
+        </div>
+
+        <div class="form-group">
+          <label for="p2-name">PLAYER 2 NAME</label>
+          <input type="text" id="p2-name" placeholder="PLAYER 2" maxlength="12" />
+        </div>
+
+        <div class="form-group">
+          <label for="start-chips">STARTING CHIPS</label>
+          <input type="number" id="start-chips" value="1000" min="100" max="10000" step="100" />
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">
+          ► START GAME
+        </button>
+      </form>
+    </div>
+
+    <p class="status-hint">↑ ENTER NAMES AND PRESS START ↑</p>
+  </main>
+
+  <!-- ══ GAME SCREEN ═══════════════════════════════════════════════════════ -->
+  <main id="game-screen" class="screen">
+
+    <div class="table-wrapper">
+
+      <!-- Opponent (top) -->
+      <div class="player-area">
+        <div class="player-info">
+          <span class="player-tag">OPPONENT</span>
+          <span class="player-name" id="opp-name">Player 2</span>
+          <span class="player-chips" id="opp-chips">1000</span>
+        </div>
+        <div class="hand" id="opp-hand"></div>
+      </div>
+
+      <hr class="table-divider" />
+
+      <!-- Pot -->
+      <div class="pot-area">
+        <span class="pot-label">POT</span>
+        <span class="pot-amount" id="pot-amount">0</span>
+        <span class="pot-label">CHIPS</span>
+      </div>
+
+      <hr class="table-divider" />
+
+      <!-- Active player (bottom) -->
+      <div class="player-area">
+        <div class="hand" id="cur-hand"></div>
+        <div class="player-info">
+          <span class="player-tag your-turn">YOUR TURN</span>
+          <span class="player-name" id="cur-name">Player 1</span>
+          <span class="player-chips" id="cur-chips">1000</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Action area -->
+    <div class="action-area">
+      <div class="action-msg" id="action-msg">Preparing game…</div>
+      <div class="action-btns" id="action-btns"></div>
+    </div>
+
+  </main>
+
+  <!-- ══ RESULT SCREEN ═════════════════════════════════════════════════════ -->
+  <main id="result-screen" class="screen">
+
+    <div class="result-panel">
+
+      <div class="winner-banner" id="winner-banner">WINNER!</div>
+
+      <p class="status-hint" id="result-pot"></p>
+
+      <div class="result-hands">
+        <div class="result-hand-panel" id="rh1"></div>
+        <div class="result-hand-panel" id="rh2"></div>
+      </div>
+
+      <div class="scoreboard">
+        <div class="score-card">
+          <div class="sc-name"  id="sc1-name">Player 1</div>
+          <div class="sc-chips" id="sc1-chips">1000</div>
+        </div>
+        <div class="score-card">
+          <div class="sc-name"  id="sc2-name">Player 2</div>
+          <div class="sc-chips" id="sc2-chips">1000</div>
+        </div>
+      </div>
+
+      <p class="game-over-msg" id="game-over-msg" style="display:none;"></p>
+
+      <div class="action-btns" style="margin-top:20px;">
+        <button class="btn btn-primary"   id="next-round-btn">► NEXT ROUND</button>
+        <button class="btn btn-secondary" id="new-game-btn">◄ NEW GAME</button>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
