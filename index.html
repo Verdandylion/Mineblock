@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mineblock – Voxel Builder</title>
+  <style>
+    /* ── Reset & Fonts ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1e1f22;
+      color: #dcddde;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+    }
+
+    /* ── Server Rail (far-left icons) ────────────────────────────────────── */
+    #server-rail {
+      width: 72px;
+      background: #1e1f22;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 8px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+      z-index: 10;
+    }
+    #server-rail::-webkit-scrollbar { display: none; }
+    .server-icon {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: #313338;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-radius .15s, background .15s;
+      font-size: 20px;
+      user-select: none;
+      position: relative;
+    }
+    .server-icon:hover, .server-icon.active {
+      border-radius: 16px;
+      background: #5865f2;
+    }
+    .server-icon::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      width: 4px;
+      background: #fff;
+      border-radius: 0 4px 4px 0;
+      transition: height .15s, top .15s;
+      height: 0; top: 50%;
+    }
+    .server-icon.active::before { height: 40px; top: calc(50% - 20px); }
+    .server-icon:hover:not(.active)::before { height: 20px; top: calc(50% - 10px); }
+    .rail-divider {
+      width: 32px; height: 2px;
+      background: #3f4147;
+      border-radius: 1px;
+    }
+
+    /* ── Channel Sidebar ──────────────────────────────────────────────────── */
+    #sidebar {
+      width: 240px;
+      background: #2b2d31;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+      z-index: 10;
+    }
+    #sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #1e1f22;
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    #sidebar-header svg { flex-shrink: 0; }
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 8px 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #949ba4;
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-label svg { flex-shrink: 0; }
+    .section-label .chevron {
+      margin-left: auto;
+      transition: transform .15s;
+    }
+    .section-label.collapsed .chevron { transform: rotate(-90deg); }
+    .channel-list { padding: 0 8px; }
+    .channel-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #949ba4;
+      transition: background .1s, color .1s;
+      user-select: none;
+    }
+    .channel-item:hover { background: #35373c; color: #dcddde; }
+    .channel-item.active { background: #404249; color: #fff; }
+    .channel-item .icon16 {
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+      image-rendering: pixelated;
+    }
+
+    /* ── Controls Panel (bottom of sidebar) ──────────────────────────────── */
+    #controls-panel {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid #1e1f22;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #b5bac1;
+    }
+    .ctrl-row label { flex-shrink: 0; font-size: 12px; color: #949ba4; }
+    input[type="color"] {
+      width: 36px; height: 26px;
+      border: none; border-radius: 4px;
+      cursor: pointer; background: none; padding: 0;
+    }
+    #size-display {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5865f2;
+      min-width: 32px;
+      text-align: right;
+    }
+    .btn {
+      width: 100%;
+      padding: 7px 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: filter .1s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn-primary { background: #5865f2; color: #fff; }
+    .btn-danger  { background: #ed4245; color: #fff; }
+    .btn-clear   { background: #4e5058; color: #dcddde; }
+
+    /* ── Main Game Area ───────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    #game-canvas {
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* ── HUD overlay ─────────────────────────────────────────────────────── */
+    #hud {
+      position: absolute;
+      top: 12px; left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .hud-badge {
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(4px);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: #fff;
+    }
+    #crosshair {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: .6;
+    }
+
+    /* ── Inventory Bar ───────────────────────────────────────────────────── */
+    #inventory-bar {
+      background: #2b2d31;
+      border-top: 1px solid #1e1f22;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #inv-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #949ba4;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    #inv-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: #5865f2;
+    }
+    #inv-grid {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 3px;
+    }
+    .inv-slot {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background: #313338;
+      border: 1px solid #3f4147;
+      cursor: pointer;
+      transition: border-color .1s, transform .1s;
+      position: relative;
+      overflow: hidden;
+    }
+    .inv-slot:empty { background: #1e1f22; }
+    .inv-slot.filled:hover { border-color: #5865f2; transform: scale(1.1); z-index: 2; }
+    .inv-slot.active-slot { border-color: #5865f2; box-shadow: 0 0 0 2px #5865f2; }
+    .inv-slot .slot-inner {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(255,255,255,.7);
+    }
+
+    /* Tooltip */
+    .inv-slot[data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111214;
+      color: #fff;
+      font-size: 10px;
+      white-space: nowrap;
+      padding: 3px 6px;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ── Notification toast ──────────────────────────────────────────────── */
+    #toast {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: #23a55a;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { background: #ed4245; }
+
+    /* ── Scrollbar styling ───────────────────────────────────────────────── */
+    #sidebar-scroll { overflow-y: auto; flex: 1; }
+    #sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    #sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    #sidebar-scroll::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 2px; }
+
+    /* ── Mode indicator ──────────────────────────────────────────────────── */
+    #mode-toggle {
+      position: absolute;
+      bottom: 8px; right: 12px;
+      display: flex;
+      gap: 6px;
+    }
+    .mode-btn {
+      background: rgba(0,0,0,.55);
+      border: 1px solid #3f4147;
+      color: #dcddde;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background .1s, border-color .1s;
+    }
+    .mode-btn.active { background: #5865f2; border-color: #5865f2; color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- ── Server Rail ─────────────────────────────────────────────────────── -->
+<div id="server-rail">
+  <div class="server-icon active" title="Mineblock">⛏️</div>
+  <div class="rail-divider"></div>
+  <div class="server-icon" title="Build Mode">🏗️</div>
+  <div class="server-icon" title="Paint Mode">🎨</div>
+  <div class="server-icon" title="Inventory">🎒</div>
+  <div class="server-icon" title="Settings">⚙️</div>
+</div>
+
+<!-- ── Channel Sidebar ────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <!-- SVG: pickaxe 16×16 pixel art -->
+    <svg width="20" height="20" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="16" height="16" fill="#23a55a" rx="3"/>
+      <rect x="2" y="11" width="2" height="2" fill="#fff"/>
+      <rect x="4" y="9" width="2" height="2" fill="#fff"/>
+      <rect x="6" y="7" width="2" height="2" fill="#fff"/>
+      <rect x="8" y="5" width="2" height="2" fill="#fff"/>
+      <rect x="10" y="3" width="4" height="2" fill="#fff"/>
+      <rect x="12" y="5" width="2" height="2" fill="#fff"/>
+      <rect x="10" y="5" width="2" height="4" fill="#fff"/>
+    </svg>
+    Mineblock
+  </div>
+
+  <div id="sidebar-scroll">
+    <!-- SECTION: Tools -->
+    <div class="section-label" data-section="tools">
+      <!-- 16×16 wrench icon -->
+      <svg class="icon16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="0" width="4" height="2" fill="#b5bac1"/>
+        <rect x="6" y="2" width="4" height="2" fill="#b5bac1"/>
+        <rect x="4" y="4" width="4" height="2" fill="#b5bac1"/>
+        <rect x="2" y="6" width="4" height="2" fill="#b5bac1"/>
+        <rect x="0" y="8" width="4" height="2" fill="#b5bac1"/>
+        <rect x="10" y="2" width="4" height="2" fill="#949ba4"/>
+        <rect x="12" y="4" width="2" height="4" fill="#949ba4"/>
+        <rect x="10" y="8" width="4" height="2" fill="#949ba4"/>
+      </svg>
+      Tools
+      <svg class="chevron" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="#949ba4" stroke-width="1.5" fill="none"/></svg>
+    </div>
+    <div class="channel-list" id="section-tools">
+      <div class="channel-item active" data-action="place">
+        <svg class="icon16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" fill="#5865f2" rx="2"/><rect x="4" y="7" width="8" height="2" fill="#fff"/><rect x="7" y="4" width="2" height="8" fill="#fff"/></svg>
+        Place Block
+      </div>
+      <div class="channel-item" data-action="remove">
+        <svg class="icon16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" fill="#ed4245" rx="2"/><rect x="4" y="7" width="8" height="2" fill="#fff"/></svg>
+        Remove Block
+      </div>
+      <div class="channel-item" data-action="paint">
+        <svg class="icon16" viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16" fill="#f0b132" rx="2"/><rect x="6" y="2" width="4" height="8" fill="#fff"/><rect x="4" y="10" width="8" height="2" fill="#fff"/><rect x="5" y="12" width="6" height="2" fill="#fff"/></svg>
+        Paint Block
+      </div>
+    </div>
+
+    <!-- SECTION: Blocks -->
+    <div class="section-label" data-section="blocks">
+      <svg class="icon16" viewBox="0 0 16 16">
+        <rect x="1" y="1" width="6" height="6" fill="#5865f2" rx="1"/>
+        <rect x="9" y="1" width="6" height="6" fill="#23a55a" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" fill="#f0b132" rx="1"/>
+        <rect x="9" y="9" width="6" height="6" fill="#ed4245" rx="1"/>
+      </svg>
+      Quick Blocks
+      <svg class="chevron" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="#949ba4" stroke-width="1.5" fill="none"/></svg>
+    </div>
+    <div class="channel-list" id="section-blocks">
+      <div class="channel-item" data-preset="#5865f2">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#5865f2" rx="2"/></svg>
+        Blurple
+      </div>
+      <div class="channel-item" data-preset="#23a55a">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#23a55a" rx="2"/></svg>
+        Green
+      </div>
+      <div class="channel-item" data-preset="#ed4245">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#ed4245" rx="2"/></svg>
+        Red
+      </div>
+      <div class="channel-item" data-preset="#f0b132">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#f0b132" rx="2"/></svg>
+        Gold
+      </div>
+      <div class="channel-item" data-preset="#ffffff">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#fff" rx="2"/><rect x="0" y="0" width="16" height="16" fill="none" stroke="#3f4147" stroke-width="1" rx="2"/></svg>
+        Snow
+      </div>
+      <div class="channel-item" data-preset="#111111">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#111" rx="2"/></svg>
+        Obsidian
+      </div>
+    </div>
+
+    <!-- SECTION: Environment -->
+    <div class="section-label" data-section="env">
+      <svg class="icon16" viewBox="0 0 16 16">
+        <rect x="0" y="10" width="16" height="6" fill="#5c4033"/>
+        <rect x="0" y="8" width="16" height="2" fill="#4a7c59"/>
+        <rect x="4" y="2" width="2" height="8" fill="#6b4c3b"/>
+        <rect x="2" y="2" width="6" height="6" fill="#4a7c59"/>
+      </svg>
+      Environment
+      <svg class="chevron" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="#949ba4" stroke-width="1.5" fill="none"/></svg>
+    </div>
+    <div class="channel-list" id="section-env">
+      <div class="channel-item" data-action="clear-world">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#ed4245" rx="2"/><rect x="3" y="7" width="10" height="2" fill="#fff"/><rect x="7" y="3" width="2" height="10" fill="#fff" opacity=".4"/></svg>
+        Clear World
+      </div>
+      <div class="channel-item" data-action="toggle-grid">
+        <svg class="icon16" viewBox="0 0 16 16">
+          <rect width="16" height="16" fill="#313338" rx="2"/>
+          <line x1="0" y1="5" x2="16" y2="5" stroke="#5865f2" stroke-width="1"/>
+          <line x1="0" y1="10" x2="16" y2="10" stroke="#5865f2" stroke-width="1"/>
+          <line x1="5" y1="0" x2="5" y2="16" stroke="#5865f2" stroke-width="1"/>
+          <line x1="10" y1="0" x2="10" y2="16" stroke="#5865f2" stroke-width="1"/>
+        </svg>
+        Toggle Grid
+      </div>
+      <div class="channel-item" data-action="toggle-sky">
+        <svg class="icon16" viewBox="0 0 16 16">
+          <rect width="16" height="16" fill="#1a1b4b" rx="2"/>
+          <circle cx="8" cy="6" r="4" fill="#f0b132"/>
+          <circle cx="8" cy="6" r="2" fill="#ffd700"/>
+        </svg>
+        Toggle Sky
+      </div>
+    </div>
+
+    <!-- SECTION: Help -->
+    <div class="section-label" data-section="help">
+      <svg class="icon16" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="7" fill="#5865f2"/>
+        <rect x="7" y="3" width="2" height="5" fill="#fff"/>
+        <rect x="7" y="10" width="2" height="3" fill="#fff"/>
+      </svg>
+      Controls
+      <svg class="chevron" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="#949ba4" stroke-width="1.5" fill="none"/></svg>
+    </div>
+    <div class="channel-list" id="section-help">
+      <div class="channel-item" style="pointer-events:none;font-size:11px;padding:3px 8px;">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#313338" rx="2"/><rect x="2" y="2" width="5" height="5" fill="#5865f2"/><rect x="9" y="2" width="5" height="5" fill="#5865f2"/><rect x="2" y="9" width="5" height="5" fill="#5865f2"/><rect x="9" y="9" width="5" height="5" fill="#5865f2"/></svg>
+        LClick: Place
+      </div>
+      <div class="channel-item" style="pointer-events:none;font-size:11px;padding:3px 8px;">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#313338" rx="2"/><rect x="4" y="4" width="8" height="8" fill="#ed4245" rx="1"/></svg>
+        RClick: Remove
+      </div>
+      <div class="channel-item" style="pointer-events:none;font-size:11px;padding:3px 8px;">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#313338" rx="2"/><rect x="7" y="1" width="2" height="14" fill="#f0b132"/><rect x="5" y="5" width="6" height="2" fill="#f0b132"/></svg>
+        Scroll: Resize
+      </div>
+      <div class="channel-item" style="pointer-events:none;font-size:11px;padding:3px 8px;">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#313338" rx="2"/><rect x="3" y="4" width="10" height="8" fill="#23a55a" rx="1"/><rect x="5" y="6" width="6" height="4" fill="#fff" rx="1"/></svg>
+        S: Save to Inv
+      </div>
+      <div class="channel-item" style="pointer-events:none;font-size:11px;padding:3px 8px;">
+        <svg class="icon16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#313338" rx="2"/><rect x="2" y="6" width="12" height="2" fill="#b5bac1"/><rect x="6" y="2" width="2" height="12" fill="#b5bac1"/></svg>
+        WASD+Mouse: Fly
+      </div>
+    </div>
+  </div><!-- end sidebar-scroll -->
+
+  <!-- Controls at bottom -->
+  <div id="controls-panel">
+    <div class="ctrl-row">
+      <label>Block Color</label>
+      <input type="color" id="color-picker" value="#5865f2" title="Pick block color" />
+      <span style="font-size:12px;color:#b5bac1;">Block Size</span>
+      <span id="size-display">1.0</span>
+    </div>
+    <button class="btn btn-primary" id="save-btn">💾 Save to Inventory (S)</button>
+    <button class="btn btn-clear" id="reset-size-btn">↺ Reset Size</button>
+  </div>
+</div>
+
+<!-- ── Main Area ──────────────────────────────────────────────────────── -->
+<div id="main">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-badge" id="hud-mode">Mode: Place ● LClick</div>
+    <div class="hud-badge" id="hud-color">Color: #5865f2</div>
+  </div>
+
+  <!-- Crosshair -->
+  <svg id="crosshair" width="24" height="24" viewBox="0 0 24 24">
+    <line x1="12" y1="3" x2="12" y2="21" stroke="white" stroke-width="1.5" stroke-dasharray="3,3"/>
+    <line x1="3" y1="12" x2="21" y2="12" stroke="white" stroke-width="1.5" stroke-dasharray="3,3"/>
+    <circle cx="12" cy="12" r="2" fill="white"/>
+  </svg>
+
+  <!-- Mode toggle (bottom-right of canvas) -->
+  <div id="mode-toggle">
+    <button class="mode-btn active" data-mode="place">⛏ Place</button>
+    <button class="mode-btn" data-mode="remove">🗑 Remove</button>
+    <button class="mode-btn" data-mode="paint">🎨 Paint</button>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Inventory Bar -->
+  <div id="inventory-bar">
+    <div id="inv-header">
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <rect x="1" y="3" width="14" height="10" fill="#4e5058" rx="2"/>
+        <rect x="5" y="1" width="6" height="4" fill="#4e5058" rx="1"/>
+        <rect x="5" y="1" width="6" height="2" fill="#313338" rx="1"/>
+        <rect x="3" y="6" width="4" height="4" fill="#5865f2" rx="1"/>
+        <rect x="9" y="6" width="4" height="4" fill="#23a55a" rx="1"/>
+      </svg>
+      Inventory
+      <span id="inv-count">0 / 64</span>
+    </div>
+    <div id="inv-grid"></div>
+  </div>
+</div>
+
+<!-- Three.js via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  MINEBLOCK – Voxel Engine
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function () {
+  'use strict';
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const state = {
+    activeColor: '#5865f2',
+    activeSize: 1.0,
+    mode: 'place',           // 'place' | 'remove' | 'paint'
+    inventory: [],           // [{color, size}]
+    activeSlot: -1,
+    gridVisible: true,
+    daySky: true,
+    blocks: new Map(),       // key -> THREE.Mesh  (key = "x,y,z")
+  };
+
+  const BLOCK_STEP = 1;
+  const MIN_SIZE = 0.2;
+  const MAX_SIZE = 3.0;
+  const INV_SLOTS = 64;
+
+  // ── Scene Setup ──────────────────────────────────────────────────────────
+  const canvas = document.getElementById('game-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+  scene.fog = new THREE.Fog(0x87ceeb, 60, 160);
+
+  const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 500);
+  camera.position.set(8, 12, 22);
+  camera.lookAt(8, 0, 8);
+
+  // ── Lighting ─────────────────────────────────────────────────────────────
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xfff3c0, 1.2);
+  sunLight.position.set(40, 60, 30);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 0.5;
+  sunLight.shadow.camera.far = 200;
+  sunLight.shadow.camera.left = -50;
+  sunLight.shadow.camera.right = 50;
+  sunLight.shadow.camera.top = 50;
+  sunLight.shadow.camera.bottom = -50;
+  scene.add(sunLight);
+
+  // ── Ground ───────────────────────────────────────────────────────────────
+  const groundGeo = new THREE.PlaneGeometry(80, 80);
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x3a6b3a });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  ground.name = 'ground';
+  scene.add(ground);
+
+  // Grid helper
+  const gridHelper = new THREE.GridHelper(80, 80, 0x1a3a1a, 0x1a3a1a);
+  gridHelper.material.opacity = 0.3;
+  gridHelper.material.transparent = true;
+  scene.add(gridHelper);
+
+  // ── Preview Block ─────────────────────────────────────────────────────────
+  const previewGeo = new THREE.BoxGeometry(1, 1, 1);
+  const previewMat = new THREE.MeshLambertMaterial({
+    color: parseInt(state.activeColor.replace('#', '0x')),
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+  const previewMesh = new THREE.Mesh(previewGeo, previewMat);
+  previewMesh.scale.setScalar(state.activeSize);
+  previewMesh.visible = false;
+  scene.add(previewMesh);
+
+  // Preview wireframe outline
+  const previewWire = new THREE.LineSegments(
+    new THREE.EdgesGeometry(previewGeo),
+    new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true })
+  );
+  previewMesh.add(previewWire);
+
+  // ── Raycaster ────────────────────────────────────────────────────────────
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2(-99, -99);
+  let canvasRect = canvas.getBoundingClientRect();
+
+  // ── Fly Camera Controls ───────────────────────────────────────────────────
+  const flyKeys = { w: false, a: false, d: false, q: false, e: false };
+  let isDragging = false;
+  let lastMouseX = 0, lastMouseY = 0;
+  let yaw = -Math.PI / 8;
+  let pitch = -0.4;
+  const flySpeed = 0.15;
+
+  function updateCameraDirection() {
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = yaw;
+    camera.rotation.x = pitch;
+  }
+  updateCameraDirection();
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function colorToHex(c) { return parseInt(c.replace('#', ''), 16); }
+
+  function blockKey(x, y, z) { return `${Math.round(x)},${Math.round(y)},${Math.round(z)}`; }
+
+  function snapToGrid(val, size) {
+    // snap so blocks sit nicely on grid
+    return Math.round(val / BLOCK_STEP) * BLOCK_STEP;
+  }
+
+  function placeBlock(position, color, size) {
+    const geo = new THREE.BoxGeometry(size, size, size);
+    const mat = new THREE.MeshLambertMaterial({ color: colorToHex(color) });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    const x = snapToGrid(position.x, size);
+    const y = Math.max(size / 2, snapToGrid(position.y, size));
+    const z = snapToGrid(position.z, size);
+    mesh.position.set(x, y, z);
+
+    // Add wireframe edges
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.2, transparent: true })
+    );
+    mesh.add(edges);
+
+    const key = blockKey(x, y, z);
+    if (state.blocks.has(key)) {
+      scene.remove(state.blocks.get(key));
+    }
+    scene.add(mesh);
+    state.blocks.set(key, mesh);
+    return mesh;
+  }
+
+  function removeBlockAt(mesh) {
+    if (!mesh || mesh.name === 'ground') return;
+    scene.remove(mesh);
+    for (const [key, m] of state.blocks.entries()) {
+      if (m === mesh) { state.blocks.delete(key); break; }
+    }
+  }
+
+  function paintBlockAt(mesh, color) {
+    if (!mesh || mesh.name === 'ground') return;
+    mesh.material.color.setHex(colorToHex(color));
+  }
+
+  // ── Get raycast targets ───────────────────────────────────────────────────
+  function getRaycastTargets() {
+    return [ground, ...state.blocks.values()];
+  }
+
+  // ── Mouse position helpers ────────────────────────────────────────────────
+  function updateMouseNDC(e) {
+    canvasRect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
+    mouse.y = -((e.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
+  }
+
+  // ── Resize canvas ─────────────────────────────────────────────────────────
+  function resizeRenderer() {
+    canvasRect = canvas.getBoundingClientRect();
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resizeRenderer();
+  new ResizeObserver(resizeRenderer).observe(canvas);
+
+  // ── Preview update ────────────────────────────────────────────────────────
+  function updatePreview(e) {
+    updateMouseNDC(e);
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(getRaycastTargets());
+    if (hits.length > 0) {
+      const hit = hits[0];
+      previewMesh.visible = (state.mode === 'place');
+      if (state.mode === 'place') {
+        const s = state.activeSize;
+        let px, py, pz;
+        if (hit.object.name === 'ground') {
+          px = snapToGrid(hit.point.x, BLOCK_STEP);
+          py = s / 2;
+          pz = snapToGrid(hit.point.z, BLOCK_STEP);
+        } else {
+          // offset along hit face normal
+          px = snapToGrid(hit.object.position.x + hit.face.normal.x * (hit.object.geometry.parameters.width / 2 + s / 2), BLOCK_STEP);
+          py = Math.max(s / 2, hit.object.position.y + hit.face.normal.y * (hit.object.geometry.parameters.height / 2 + s / 2));
+          pz = snapToGrid(hit.object.position.z + hit.face.normal.z * (hit.object.geometry.parameters.depth / 2 + s / 2), BLOCK_STEP);
+        }
+        previewMesh.position.set(px, py, pz);
+        previewMesh.scale.setScalar(s);
+        previewMat.color.setHex(colorToHex(state.activeColor));
+      }
+    } else {
+      previewMesh.visible = false;
+    }
+  }
+
+  // ── Canvas events ─────────────────────────────────────────────────────────
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const dx = e.clientX - lastMouseX;
+      const dy = e.clientY - lastMouseY;
+      yaw -= dx * 0.003;
+      pitch -= dy * 0.003;
+      pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      updateCameraDirection();
+    }
+    updatePreview(e);
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 2) {
+      isDragging = true;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+    if (e.button !== 0) return;
+    updateMouseNDC(e);
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(getRaycastTargets());
+    if (hits.length === 0) return;
+    const hit = hits[0];
+
+    if (state.mode === 'place') {
+      const s = state.activeSize;
+      let px, py, pz;
+      if (hit.object.name === 'ground') {
+        px = snapToGrid(hit.point.x, BLOCK_STEP);
+        py = s / 2;
+        pz = snapToGrid(hit.point.z, BLOCK_STEP);
+      } else {
+        px = snapToGrid(hit.object.position.x + hit.face.normal.x * (hit.object.geometry.parameters.width / 2 + s / 2), BLOCK_STEP);
+        py = Math.max(s / 2, hit.object.position.y + hit.face.normal.y * (hit.object.geometry.parameters.height / 2 + s / 2));
+        pz = snapToGrid(hit.object.position.z + hit.face.normal.z * (hit.object.geometry.parameters.depth / 2 + s / 2), BLOCK_STEP);
+      }
+      placeBlock({ x: px, y: py, z: pz }, state.activeColor, s);
+      showToast('Block placed!', false, 900);
+    } else if (state.mode === 'remove') {
+      if (hit.object.name !== 'ground') {
+        removeBlockAt(hit.object);
+        showToast('Block removed.', false, 700);
+      }
+    } else if (state.mode === 'paint') {
+      if (hit.object.name !== 'ground') {
+        paintBlockAt(hit.object, state.activeColor);
+        showToast('Block painted!', false, 700);
+      }
+    }
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (e.button === 2) { isDragging = false; canvas.style.cursor = 'crosshair'; }
+  });
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ── Scroll to resize ──────────────────────────────────────────────────────
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    state.activeSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, +(state.activeSize + delta).toFixed(2)));
+    document.getElementById('size-display').textContent = state.activeSize.toFixed(1);
+    previewMesh.scale.setScalar(state.activeSize);
+  }, { passive: false });
+
+  // ── Keyboard ─────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    const k = e.key.toLowerCase();
+    if (k in flyKeys) flyKeys[k] = true;
+    if (k === 's') { saveToInventory(); }
+    if (k === 'arrowleft' || k === 'a') flyKeys['a'] = true;
+    if (k === 'arrowright' || k === 'd') flyKeys['d'] = true;
+  });
+  document.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k in flyKeys) flyKeys[k] = false;
+  });
+
+  // ── Fly loop ──────────────────────────────────────────────────────────────
+  function flyTick() {
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+    if (flyKeys['w']) camera.position.addScaledVector(dir, flySpeed);
+    if (flyKeys['a']) camera.position.addScaledVector(right, -flySpeed);
+    if (flyKeys['d']) camera.position.addScaledVector(right, flySpeed);
+    if (flyKeys['q']) camera.position.y -= flySpeed;
+    if (flyKeys['e']) camera.position.y += flySpeed;
+    // Also allow arrow keys via separate tracking
+  }
+
+  // ── Render loop ───────────────────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    flyTick();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // ── Inventory ────────────────────────────────────────────────────────────
+  function loadInventory() {
+    try {
+      const saved = localStorage.getItem('mineblock-inventory');
+      if (saved) state.inventory = JSON.parse(saved);
+    } catch (_) { state.inventory = []; }
+    renderInventory();
+  }
+
+  function saveInventoryToStorage() {
+    localStorage.setItem('mineblock-inventory', JSON.stringify(state.inventory));
+  }
+
+  function saveToInventory() {
+    if (state.inventory.length >= INV_SLOTS) {
+      showToast('Inventory full! (64/64)', true);
+      return;
+    }
+    state.inventory.push({ color: state.activeColor, size: state.activeSize });
+    saveInventoryToStorage();
+    renderInventory();
+    showToast(`Saved: ${state.activeColor} ×${state.activeSize}`, false);
+  }
+
+  function renderInventory() {
+    const grid = document.getElementById('inv-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < INV_SLOTS; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'inv-slot';
+      if (i < state.inventory.length) {
+        const item = state.inventory[i];
+        slot.classList.add('filled');
+        if (i === state.activeSlot) slot.classList.add('active-slot');
+        slot.style.background = item.color;
+        slot.dataset.tip = `${item.color} ×${item.size}`;
+        const inner = document.createElement('div');
+        inner.className = 'slot-inner';
+        inner.textContent = item.size.toFixed(1);
+        slot.appendChild(inner);
+        slot.addEventListener('click', () => selectSlot(i));
+        slot.addEventListener('contextmenu', (e) => { e.preventDefault(); removeSlot(i); });
+      }
+      grid.appendChild(slot);
+    }
+    document.getElementById('inv-count').textContent = `${state.inventory.length} / ${INV_SLOTS}`;
+  }
+
+  function selectSlot(i) {
+    if (i >= state.inventory.length) return;
+    state.activeSlot = i;
+    const item = state.inventory[i];
+    state.activeColor = item.color;
+    state.activeSize = item.size;
+    document.getElementById('color-picker').value = item.color;
+    document.getElementById('size-display').textContent = item.size.toFixed(1);
+    document.getElementById('hud-color').textContent = `Color: ${item.color}`;
+    previewMat.color.setHex(colorToHex(item.color));
+    previewMesh.scale.setScalar(item.size);
+    renderInventory();
+    showToast(`Equipped slot ${i + 1}`, false, 1000);
+  }
+
+  function removeSlot(i) {
+    state.inventory.splice(i, 1);
+    if (state.activeSlot === i) state.activeSlot = -1;
+    else if (state.activeSlot > i) state.activeSlot--;
+    saveInventoryToStorage();
+    renderInventory();
+    showToast('Slot removed.', false, 700);
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, isError = false, duration = 2000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show' + (isError ? ' error' : '');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, duration);
+  }
+
+  // ── UI Wiring ─────────────────────────────────────────────────────────
+  // Color picker
+  document.getElementById('color-picker').addEventListener('input', (e) => {
+    state.activeColor = e.target.value;
+    state.activeSlot = -1;
+    document.getElementById('hud-color').textContent = `Color: ${state.activeColor}`;
+    previewMat.color.setHex(colorToHex(state.activeColor));
+    renderInventory();
+  });
+
+  // Save button
+  document.getElementById('save-btn').addEventListener('click', saveToInventory);
+
+  // Reset size
+  document.getElementById('reset-size-btn').addEventListener('click', () => {
+    state.activeSize = 1.0;
+    document.getElementById('size-display').textContent = '1.0';
+    previewMesh.scale.setScalar(1.0);
+  });
+
+  // Mode toggle buttons
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode = btn.dataset.mode;
+      document.getElementById('hud-mode').textContent =
+        state.mode === 'place' ? 'Mode: Place ● LClick' :
+        state.mode === 'remove' ? 'Mode: Remove ● LClick' : 'Mode: Paint ● LClick';
+      previewMesh.visible = state.mode === 'place';
+    });
+  });
+
+  // Section collapsing
+  document.querySelectorAll('.section-label').forEach(label => {
+    label.addEventListener('click', () => {
+      const id = 'section-' + label.dataset.section;
+      const section = document.getElementById(id);
+      if (!section) return;
+      const isHidden = section.style.display === 'none';
+      section.style.display = isHidden ? '' : 'none';
+      label.classList.toggle('collapsed', !isHidden);
+    });
+  });
+
+  // Channel actions
+  document.querySelectorAll('.channel-item[data-action]').forEach(item => {
+    item.addEventListener('click', () => {
+      const action = item.dataset.action;
+      if (action === 'place' || action === 'remove' || action === 'paint') {
+        state.mode = action;
+        document.querySelectorAll('.channel-item[data-action]').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.mode === action);
+        });
+        document.getElementById('hud-mode').textContent =
+          action === 'place' ? 'Mode: Place ● LClick' :
+          action === 'remove' ? 'Mode: Remove ● LClick' : 'Mode: Paint ● LClick';
+      } else if (action === 'clear-world') {
+        if (confirm('Clear all placed blocks?')) {
+          state.blocks.forEach((mesh) => scene.remove(mesh));
+          state.blocks.clear();
+          showToast('World cleared!', false);
+        }
+      } else if (action === 'toggle-grid') {
+        state.gridVisible = !state.gridVisible;
+        gridHelper.visible = state.gridVisible;
+        showToast(`Grid ${state.gridVisible ? 'on' : 'off'}`, false, 1200);
+      } else if (action === 'toggle-sky') {
+        state.daySky = !state.daySky;
+        const skyColor = state.daySky ? 0x87ceeb : 0x0d0d1a;
+        scene.background = new THREE.Color(skyColor);
+        scene.fog.color = new THREE.Color(skyColor);
+        showToast(`Sky: ${state.daySky ? 'Day' : 'Night'}`, false, 1200);
+      }
+    });
+  });
+
+  // Preset colors
+  document.querySelectorAll('.channel-item[data-preset]').forEach(item => {
+    item.addEventListener('click', () => {
+      state.activeColor = item.dataset.preset;
+      state.activeSlot = -1;
+      document.getElementById('color-picker').value = state.activeColor;
+      document.getElementById('hud-color').textContent = `Color: ${state.activeColor}`;
+      previewMat.color.setHex(colorToHex(state.activeColor));
+      renderInventory();
+      showToast(`Color: ${state.activeColor}`, false, 1000);
+    });
+  });
+
+  // Server rail icons
+  document.querySelectorAll('.server-icon').forEach(icon => {
+    icon.addEventListener('click', () => {
+      document.querySelectorAll('.server-icon').forEach(i => i.classList.remove('active'));
+      icon.classList.add('active');
+    });
+  });
+
+  // ── Seed the world with a few starter blocks ──────────────────────────
+  function seedWorld() {
+    const palette = ['#5865f2','#23a55a','#ed4245','#f0b132','#ffffff','#6b4c3b'];
+    // simple platform
+    for (let x = 2; x <= 14; x += 2) {
+      placeBlock({ x, y: 0, z: 8 }, palette[Math.floor(Math.random() * palette.length)], 1);
+    }
+    placeBlock({ x: 4, y: 1, z: 4 }, '#23a55a', 1.5);
+    placeBlock({ x: 8, y: 1, z: 5 }, '#5865f2', 1);
+    placeBlock({ x: 12, y: 1, z: 6 }, '#ed4245', 2);
+    placeBlock({ x: 6, y: 3, z: 8 }, '#f0b132', 1);
+  }
+  seedWorld();
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  loadInventory();
+  showToast('Welcome to Mineblock! 🎮', false, 3000);
+
+})();
+</script>
+</body>
+</html>
