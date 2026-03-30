@@ -647,7 +647,7 @@
   let canvasRect = canvas.getBoundingClientRect();
 
   // ── Fly Camera Controls ───────────────────────────────────────────────────
-  const flyKeys = { w: false, a: false, s: false, d: false, q: false, e: false };
+  const flyKeys = { w: false, a: false, d: false, q: false, e: false };
   let isDragging = false;
   let lastMouseX = 0, lastMouseY = 0;
   let yaw = -Math.PI / 8;
@@ -859,7 +859,6 @@
     camera.getWorldDirection(dir);
     const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
     if (flyKeys['w']) camera.position.addScaledVector(dir, flySpeed);
-    if (flyKeys['s'] && !true) camera.position.addScaledVector(dir, -flySpeed); // S is save
     if (flyKeys['a']) camera.position.addScaledVector(right, -flySpeed);
     if (flyKeys['d']) camera.position.addScaledVector(right, flySpeed);
     if (flyKeys['q']) camera.position.y -= flySpeed;
